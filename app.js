@@ -3,6 +3,10 @@ const express = require('express');
 const path = require('path');
 const bodyParser = require('body-parser');
 
+const Controllers = require('./src/controllers');
+
+const Router = require('./config/router');
+
 const app = express();
 // const env = process.env.NODE_ENV === undefined ? 'development' : process.env.NODE_ENV;
 app.set('views', path.join(__dirname, 'web', 'views'));
@@ -13,8 +17,8 @@ app.use(bodyParser.urlencoded({ extended: true }));
 
 app.use(express.static(path.join(__dirname, 'public')));
 
-app.use('/', (req, res, next) => {
-  res.send('It works');
-});
+const controllers = Controllers();
+const routes = Router({ controllers });
+app.use('/', routes);
 
 module.exports = app;
