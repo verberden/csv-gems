@@ -10,7 +10,7 @@ const Services = require('./src/services');
 const Router = require('./config/router');
 
 const app = express();
-// const env = process.env.NODE_ENV === undefined ? 'development' : process.env.NODE_ENV;
+const env = process.env.NODE_ENV === undefined ? 'development' : process.env.NODE_ENV;
 app.set('views', path.join(__dirname, 'web', 'views'));
 app.set('view engine', 'pug');
 
@@ -23,10 +23,16 @@ app.use(fileUpload({
   tempFileDir: './tmp/',
   limits: { fileSize: 5 * 1024 * 1024 }, // 5Mb default 1Mb
 }));
+const libs = require('./libs');
+const configDb = require('./config/databases');
 
-const services = Services({ config: { db: 'sequelize' } });
+const dbs = libs.db({ env, config: configDb });
+const models = require('./src/models')({ dbs });
+
+const services = Services({ models });
 const controllers = Controllers({ services });
 const routes = Router({ controllers });
+
 app.use('/', routes);
 
 app.use((err, req, res, next) => {

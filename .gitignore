@@ -1,7 +1,5 @@
+data/
 node_modules/
-public/assets
-public/system
-public/uploads
 logs/
 log/
 tmp/
