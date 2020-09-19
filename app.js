@@ -5,6 +5,7 @@ const bodyParser = require('body-parser');
 const fileUpload = require('express-fileupload');
 
 const Controllers = require('./src/controllers');
+const Services = require('./src/services');
 
 const Router = require('./config/router');
 
@@ -20,9 +21,11 @@ app.use(express.static(path.join(__dirname, 'public')));
 app.use(fileUpload({
   useTempFiles: true,
   tempFileDir: './tmp/',
+  limits: { fileSize: 5 * 1024 * 1024 }, // 5Mb default 1Mb
 }));
 
-const controllers = Controllers();
+const services = Services({ config: { db: 'sequelize' } });
+const controllers = Controllers({ services });
 const routes = Router({ controllers });
 app.use('/', routes);
 
