@@ -8,18 +8,36 @@ services:
       MYSQL_DATABASE: ${MYSQL_DATABASE}
       MYSQL_USER: ${MYSQL_USER}
       MYSQL_PASSWORD: ${MYSQL_PASSWORD}
-    ports: 
-      - 3306:3306
     volumes:
-      - ./data/db:/var/lib/mysql
+      - ../data/db:/var/lib/mysql
     restart: unless-stopped
 
   redis:
     image: 'redis:alpine'
     volumes:
-      - ./data/redis:/data
-    ports:
-      - 6379:6379
+      - ../data/redis:/data
     environment:
       - REDIS_REPLICATION_MODE=master
     restart: unless-stopped
+
+  app:
+    build:
+      context: .
+      dockerfile: ./Dockerfile
+    restart: unless-stopped
+    environment:
+      MYSQL_HOST: ${MYSQL_HOST}
+      MYSQL_PORT: ${MYSQL_PORT}
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+      REDIS_HOST: ${REDIS_HOST}
+      REDIS_PORT: ${REDIS_PORT}
+    command: sh -c "./wait-for ${MYSQL_HOST}:${MYSQL_PORT} -- npx sequelize db:migrate && npm run production"
+    ports:
+      - 3000:3000
+    links:
+      - redis
+      - database
+    volumes:
+      - .:/usr/src/app
