@@ -1,5 +1,6 @@
 const fs = require('fs');
 const csv = require('csv-parser');
+const array = require('lodash/array');
 
 // TODO: helper?
 function unlinkFile(path) {
@@ -94,11 +95,51 @@ module.exports = ({ models }) => {
       const { deal: Deal } = this.models;
 
       try {
-        const deals = await Deal.findAll({
-          attributes: [['customer', 'username'], [Deal.sequelize.literal('SUM(Deal.total)'), 'spent_money']],
+        const rawDeals = await Deal.findAll({
+          attributes: [
+            ['customer', 'username'],
+            [Deal.sequelize.literal('SUM(Deal.total)'), 'spent_money'],
+            [Deal.sequelize.literal('GROUP_CONCAT(Deal.item)'), 'gems'],
+          ],
           group: ['customer'],
           limit: 5,
           order: Deal.sequelize.literal('spent_money DESC'),
+        });
+
+        const deals = [];
+        const allGems = [];
+        // transform gems string into array and get all gems
+        rawDeals.forEach((rawDeal) => {
+          const deal = rawDeal.dataValues;
+          const dealGems = deal.gems.split(',');
+          deal.gems = dealGems;
+          allGems.push(dealGems);
+          deals.push(deal);
+        });
+
+        // remove duplicates form all gems
+        const gems = new Set(...allGems);
+
+        const gemsObj = {};
+        // get all gems wich which have 2 overlaps
+        gems.forEach((gem) => {
+          gemsObj[gem] = 0;
+          deals.forEach((deal) => {
+            if (deal.gems.includes(gem)) {
+              gemsObj[gem] += 1;
+            }
+          });
+
+          if (gemsObj[gem] < 2) {
+            delete gemsObj[gem];
+          }
+        });
+
+        const soughtForGems = Object.keys(gemsObj);
+        // keep matched gems
+        deals.forEach((deal) => {
+          // eslint-disable-next-line no-param-reassign
+          deal.gems = array.intersection(deal.gems, soughtForGems);
         });
 
         return deals;
