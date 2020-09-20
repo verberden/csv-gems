@@ -3,6 +3,7 @@ const express = require('express');
 const path = require('path');
 const bodyParser = require('body-parser');
 const fileUpload = require('express-fileupload');
+const signale = require('signale');
 
 const Controllers = require('./src/controllers');
 const Services = require('./src/services');
@@ -26,17 +27,18 @@ app.use(fileUpload({
 const libs = require('./libs');
 const configDb = require('./config/databases');
 
-const dbs = libs.db({ env, config: configDb });
+const dbs = libs.sequelize({ env, config: configDb });
+const redis = libs.redis({ config: configDb });
 const models = require('./src/models')({ dbs });
 
-const services = Services({ models });
+const services = Services({ models, redis });
 const controllers = Controllers({ services });
 const routes = Router({ controllers });
 
 app.use('/', routes);
 
 app.use((err, req, res, next) => {
-  console.log(`Unhandled error detected: ${err.message}`);
+  signale.error(`Unhandled error detected: ${err.message}`);
   res.status(500).json({ error: '500 - server error' });
 });
 

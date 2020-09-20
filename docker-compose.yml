@@ -13,3 +13,13 @@ services:
     volumes:
       - ./data/db:/var/lib/mysql
     restart: unless-stopped
+
+  redis:
+    image: 'redis:alpine'
+    volumes:
+      - ./data/redis:/data
+    ports:
+      - 6379:6379
+    environment:
+      - REDIS_REPLICATION_MODE=master
+    restart: unless-stopped

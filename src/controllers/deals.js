@@ -2,7 +2,10 @@ module.exports = ({ services }) => ({
   index: async (req, res, next) => {
     const { DealService } = services;
     try {
-      const result = await DealService.show();
+      let result = await DealService.getCachedTop5Users();
+      if (!result) {
+        result = await DealService.getTop5Users();
+      }
       res.json({ response: result });
     } catch (err) {
       next(err);
@@ -10,7 +13,6 @@ module.exports = ({ services }) => ({
   },
   create: async (req, res, next) => {
     try {
-      // console.log(req.files);
       const { DealService } = services;
       if (req.files) {
         const rows = await DealService.processFile(req.files);

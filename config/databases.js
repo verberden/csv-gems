@@ -8,4 +8,9 @@ module.exports = {
     database: process.env.MYSQL_DATABASE || 'csvDb',
     dialect: 'mariadb',
   },
+  redis: {
+    adapter: 'redis',
+    host: process.env.REDIS_HOST || 'localhost',
+    port: process.env.REDIS_PORT || 6379,
+  },
 };

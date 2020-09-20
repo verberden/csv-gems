@@ -1,45 +1,30 @@
 const fs = require('fs');
 const csv = require('csv-parser');
 const array = require('lodash/array');
+const signale = require('signale');
+const { unlinkFiles, unlinkFile } = require('../../helpers');
 
-// TODO: helper?
-function unlinkFile(path) {
-  fs.unlink(path, (err) => {
-    if (err) console.log(err.message);
-  });
-}
-
-module.exports = ({ models }) => {
+module.exports = ({ models, redis }) => {
   class DealService {
     constructor() {
       this.models = models;
+      this.redis = redis;
     }
 
     async processFile(files) {
       const fileObject = files.deal;
       if (!fileObject) {
-        // TODO: helper?
-        const tmpFilesPath = [];
-        const keys = Object.keys(files);
-        keys.forEach((key) => {
-          const value = files[key];
-          if (Array.isArray(value)) {
-            value.forEach((el) => {
-              tmpFilesPath.push(el.tempFilePath);
-            });
-          } else {
-            tmpFilesPath.push(value.tempFilePath);
-          }
-        });
-        tmpFilesPath.forEach((tmpPath) => {
-          unlinkFile(tmpPath);
-        });
-
+        unlinkFiles(files);
         throw new Error('No deal file');
       }
+
+      if (Array.isArray(files.deal)) {
+        unlinkFiles(files);
+        throw new Error('Should be one file');
+      }
+
       if (fileObject.mimetype === 'text/csv') {
         const rows = await this.prepareDataFormFile(fileObject.tempFilePath);
-        console.log(rows);
         unlinkFile(fileObject.tempFilePath);
         return rows;
       }
@@ -85,13 +70,16 @@ module.exports = ({ models }) => {
 
         await Deal.bulkCreate([...rows], { transaction: t });
         await t.commit();
+
+        // clear cash
+        await this.redis.del('top5Users');
       } catch (error) {
         await t.rollback();
         throw error;
       }
     }
 
-    async show() {
+    async getTop5Users() {
       const { deal: Deal } = this.models;
 
       try {
@@ -106,7 +94,7 @@ module.exports = ({ models }) => {
           order: Deal.sequelize.literal('spent_money DESC'),
         });
 
-        const deals = [];
+        const users = [];
         const allGems = [];
         // transform gems string into array and get all gems
         rawDeals.forEach((rawDeal) => {
@@ -114,7 +102,7 @@ module.exports = ({ models }) => {
           const dealGems = deal.gems.split(',');
           deal.gems = dealGems;
           allGems.push(dealGems);
-          deals.push(deal);
+          users.push(deal);
         });
 
         // remove duplicates form all gems
@@ -124,8 +112,8 @@ module.exports = ({ models }) => {
         // get all gems wich which have 2 overlaps
         gems.forEach((gem) => {
           gemsObj[gem] = 0;
-          deals.forEach((deal) => {
-            if (deal.gems.includes(gem)) {
+          users.forEach((user) => {
+            if (user.gems.includes(gem)) {
               gemsObj[gem] += 1;
             }
           });
@@ -137,16 +125,26 @@ module.exports = ({ models }) => {
 
         const soughtForGems = Object.keys(gemsObj);
         // keep matched gems
-        deals.forEach((deal) => {
+        users.forEach((user) => {
           // eslint-disable-next-line no-param-reassign
-          deal.gems = array.intersection(deal.gems, soughtForGems);
+          user.gems = array.intersection(user.gems, soughtForGems);
         });
 
-        return deals;
+        await this.redis.set('top5Users', JSON.stringify(users));
+
+        return users;
       } catch (error) {
-        console.log(error);
+        signale.error(error);
         throw error;
       }
+    }
+
+    async getCachedTop5Users() {
+      const usersString = await this.redis.get('top5Users');
+      if (usersString) {
+        return JSON.parse(usersString);
+      }
+      return null;
     }
   }
 
