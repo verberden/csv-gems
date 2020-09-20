@@ -34,10 +34,21 @@ services:
       REDIS_HOST: ${REDIS_HOST}
       REDIS_PORT: ${REDIS_PORT}
     command: sh -c "./wait-for ${MYSQL_HOST}:${MYSQL_PORT} -- npx sequelize db:migrate && npm run production"
-    ports:
-      - 3000:3000
     links:
       - redis
       - database
     volumes:
       - .:/usr/src/app
+
+  nginx:
+    build:
+      context: .
+      dockerfile: ./nginx/Dockerfile
+    restart: unless-stopped
+    ports:
+      - 8585:80
+    links:
+      - app
+    volumes:
+      - ./nginx/vhosts:/etc/nginx/sites-enabled
+      - ../data/logs/web:/var/log/nginx
